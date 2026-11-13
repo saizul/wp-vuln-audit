@@ -1,0 +1,8 @@
+# Copy to .wpvulnignore in your project or WordPress root.
+# One rule per line: a Wordfence id, a CVE, plugin:<slug>[@version], theme:<slug>[@version] or core[@version].
+
+# Accepted risk until the vendor ships a fix.
+CVE-2026-20002 expires=2026-12-31 reason="CSRF needs a logged-in admin; WAF rule in place"
+
+# The plugin is installed but never activated on this site.
+plugin:demo-slider@4.2 reason="inactive, scheduled for removal"

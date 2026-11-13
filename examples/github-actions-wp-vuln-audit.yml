@@ -1,0 +1,40 @@
+# Example workflow for a repository that contains a WordPress site (or its wp-content).
+# Copy to .github/workflows/wp-vuln-audit.yml and add WORDFENCE_API_KEY as a repository secret.
+name: WordPress vulnerability audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 5 * * *"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install "git+https://github.com/saizul/wp-vuln-audit@v0.1.0"
+      - name: Cache the Wordfence feed
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/wp-vuln-audit
+          key: wordfence-feed-${{ github.run_id }}
+          restore-keys: wordfence-feed-
+      - name: Audit
+        env:
+          WORDFENCE_API_KEY: ${{ secrets.WORDFENCE_API_KEY }}
+        run: wp-vuln-audit scan . --format sarif --output wp-vuln-audit.sarif --fail-on high
+      - name: Upload to code scanning
+        if: always()
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: wp-vuln-audit.sarif
+          category: wp-vuln-audit

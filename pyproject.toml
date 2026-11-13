@@ -1,0 +1,68 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wp-vuln-audit"
+dynamic = ["version"]
+description = "Check WordPress core, plugin and theme versions against the Wordfence Intelligence vulnerability feed, with text, JSON, Markdown and SARIF reports for CI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Saizul Amin" }]
+keywords = ["wordpress", "security", "vulnerability-scanner", "wordfence", "sarif", "wp-cli", "devsecops"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+    "Topic :: Internet :: WWW/HTTP :: Site Management",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "ruff>=0.4"]
+
+[project.urls]
+Homepage = "https://github.com/saizul/wp-vuln-audit"
+Issues = "https://github.com/saizul/wp-vuln-audit/issues"
+Changelog = "https://github.com/saizul/wp-vuln-audit/blob/main/CHANGELOG.md"
+
+[project.scripts]
+wp-vuln-audit = "wp_vuln_audit.cli:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "wp_vuln_audit._version.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+wp_vuln_audit = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+src = ["src", "tests"]
+extend-exclude = ["*.md"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "C4", "SIM", "RUF"]
+ignore = ["SIM108", "RUF022"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B011"]

@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Baselines: `--baseline FILE` compares a scan with an earlier JSON or SARIF report. Findings are keyed by
+  component type, slug and vulnerability id (not the installed version) and marked new or unchanged in every
+  report format (`[new]`, **New:**, `baseline_state`, SARIF `baselineState`); baseline entries that are no longer
+  reported are listed as resolved.
+- `--fail-scope new|all`, `--new-only` and `--write-baseline FILE`, including a rolling baseline when
+  `--baseline` and `--write-baseline` name the same, not yet existing file.
+- `Baseline`, `BaselineComparison`, `BaselineError` and `compare()` in the Python API.
+- SARIF results carry a `severity` property.
+
+### Changed
+
+- With `--baseline`, `--fail-on` counts only findings that are not in the baseline (use `--fail-scope all` for the
+  previous behaviour). Runs without `--baseline` are unchanged.
+
 ## [0.1.0] - 2026-11-13
 
 First public release.

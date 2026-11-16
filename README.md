@@ -87,6 +87,8 @@ It is a command-line tool and a Python library with **no runtime dependencies** 
 - **Reports**: text (grouped by component, coloured on a terminal), JSON, Markdown (for PR comments, chat or e-mail) and
   **SARIF 2.1.0** with `security-severity`, CWE tags and stable fingerprints for GitHub code scanning.
 - **CI friendly**: `--fail-on` threshold, distinct exit codes for "vulnerable", "bad input" and "feed problem".
+- **Baselines**: compare with an earlier JSON or SARIF report, mark findings as new or unchanged, list resolved ones,
+  and fail the build on new findings only.
 
 ## Installation
 
@@ -189,6 +191,33 @@ $ wp-vuln-audit check theme astra 4.0.0 --format json
 $ wp-vuln-audit check core 6.4.2
 ```
 
+### compare with a baseline
+
+Adopting the tool on a site with known, accepted issues? Record them once and let CI fail only when something new
+appears:
+
+```console
+$ wp-vuln-audit scan . --format json --output baseline.json --fail-on never     # once, commit or store the file
+$ wp-vuln-audit scan . --baseline baseline.json --fail-on high                  # later runs
+wp-vuln-audit: baseline: 1 new, 4 unchanged, 1 resolved
+```
+
+A finding is identified by component type, slug and Wordfence vulnerability id; the installed version is not part of
+the key, so updating a plugin to a release that is still affected by the same advisory does not make it "new". Both a
+JSON report and a SARIF report can be the baseline, and ignored findings in a JSON baseline count as known.
+
+- new findings are marked `[new]` in text, **New:** in Markdown, `"baseline_state": "new"` in JSON and
+  `baselineState` in SARIF; baseline entries that are no longer reported are listed as resolved
+- `--fail-on` counts only new findings; `--fail-scope all` makes every finding count again
+- `--new-only` leaves unchanged findings out of the report
+- `--write-baseline FILE` also writes the complete JSON report to `FILE` (unaffected by `--new-only`). When
+  `--baseline` and `--write-baseline` name the same file and it does not exist yet, the run starts from an empty
+  baseline, which makes a rolling baseline a single command:
+
+```console
+$ wp-vuln-audit scan . --baseline state/wp.json --write-baseline state/wp.json --new-only --format markdown
+```
+
 ### list what was found
 
 ```console
@@ -226,6 +255,10 @@ $ wp-vuln-audit feed update --feed scanner
 | `-f, --format` | | `text` | `text`, `json`, `markdown` (`md`) or `sarif` |
 | `-o, --output FILE` | | stdout | write the report to a file |
 | `--fail-on LEVEL` | | `any` | `any`, `low`, `medium`, `high`, `critical` or `never` |
+| `--baseline FILE` | | none | earlier JSON or SARIF report to compare with |
+| `--fail-scope new\|all` | | `new` | with `--baseline`: which findings `--fail-on` counts |
+| `--new-only` | | off | with `--baseline`: report new findings only |
+| `--write-baseline FILE` | | none | also write the full JSON report to `FILE` |
 | `--color auto\|always\|never` | `NO_COLOR` | `auto` | colours in text output |
 | `--rate-limit SECONDS` | | `1` | delay between remote requests |
 | `--max-requests N` | | `40` | request budget of a remote scan |
@@ -269,7 +302,8 @@ Components whose version could not be read are listed as "not checked" rather th
 - **text** (default): grouped by component, most severe first, with the affected range, the fix and the advisory link.
 - **json**: `schema_version`, a `summary` (counts by severity, highest severity), every component, `findings`,
   `ignored`, `unchecked` and `warnings`. Each finding has the id, title, CVE, CVSS vector and score, CWE, affected
-  range, fix, remediation, advisory URL and references.
+  range, fix, remediation, advisory URL and references. With `--baseline`, findings carry `baseline_state` and a
+  `baseline` object holds the new, unchanged and resolved counts and the resolved entries.
 - **markdown**: a table for pull request comments, issues, Slack or e-mail.
 - **sarif**: SARIF 2.1.0. Every vulnerability is a rule with `security-severity` set to its CVSS score, so GitHub code
   scanning shows Critical / High / Medium / Low; results point at the file the version was read from and carry a
@@ -281,8 +315,8 @@ Components whose version could not be read are listed as "not checked" rather th
 | Code | Meaning |
 | --- | --- |
 | 0 | no finding at or above `--fail-on` (or `--fail-on never`) |
-| 1 | at least one finding at or above `--fail-on` |
-| 2 | usage error, unreadable input, not a WordPress directory, invalid ignore file |
+| 1 | at least one finding at or above `--fail-on` (with `--baseline`: a new one, unless `--fail-scope all`) |
+| 2 | usage error, unreadable input, not a WordPress directory, invalid ignore file or baseline |
 | 3 | the feed could not be loaded (no API key, rejected key, download failed without a cache, invalid JSON) |
 
 ## Library use

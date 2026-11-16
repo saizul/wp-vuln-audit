@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import datetime as _dt
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .feed import SEVERITIES, Feed, Software, Vulnerability, severity_rank
 from .ignore import IgnoreList, IgnoreRule
 from .inventory import Component, Inventory
 from .ranges import VersionRange
+
+if TYPE_CHECKING:
+    from .baseline import BaselineComparison
 
 __all__ = ["AuditOptions", "AuditResult", "Finding", "audit", "check_component"]
 
@@ -93,6 +96,8 @@ class AuditResult:
     unchecked: list[Component] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     feed_info: dict[str, Any] = field(default_factory=dict)
+    # Set by ``baseline.compare()``.
+    baseline: BaselineComparison | None = None
 
     @property
     def vulnerable_components(self) -> list[Component]:
@@ -112,14 +117,21 @@ class AuditResult:
             return None
         return max((f.severity for f in self.findings), key=severity_rank)
 
-    def fails(self, threshold: str) -> bool:
-        """True when a finding is at or above ``threshold`` (``never`` disables)."""
+    def fails(self, threshold: str, *, new_only: bool = False) -> bool:
+        """True when a finding is at or above ``threshold`` (``never`` disables).
+
+        With ``new_only`` and a baseline comparison, only findings that are not in the
+        baseline count.
+        """
         if threshold == "never":
             return False
+        findings = self.findings
+        if new_only and self.baseline is not None:
+            findings = [f for f in findings if self.baseline.is_new(f)]
         if threshold == "any":
-            return bool(self.findings)
+            return bool(findings)
         rank = severity_rank(threshold)
-        return any(severity_rank(f.severity) >= rank for f in self.findings)
+        return any(severity_rank(f.severity) >= rank for f in findings)
 
 
 def check_component(feed: Feed, component: Component) -> list[Finding]:

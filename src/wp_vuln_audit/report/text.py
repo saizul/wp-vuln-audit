@@ -58,7 +58,8 @@ def render_text(result: AuditResult, *, color: bool = False, show_ignored: bool 
         lines.append(f"{comp.label}{where}")
         for f in findings:
             cve = f" {f.vulnerability.cve}" if f.vulnerability.cve else ""
-            lines.append(f"  {_sev(f, color)} {f.vulnerability.title}{cve}")
+            new = " [new]" if result.baseline is not None and result.baseline.is_new(f) else ""
+            lines.append(f"  {_sev(f, color)} {f.vulnerability.title}{cve}{new}")
             lines.append(f"  {'':13} affected {f.range.describe()}; {_fix(f)}")
             lines.append(f"  {'':13} {f.vulnerability.url}")
     if result.findings:
@@ -70,6 +71,13 @@ def render_text(result: AuditResult, *, color: bool = False, show_ignored: bool 
             reason = f" ({f.ignored_by.reason})" if f.ignored_by and f.ignored_by.reason else ""
             rule = f.ignored_by.describe() if f.ignored_by else "?"
             lines.append(f"  {f.component.label}: {f.vulnerability.title} [rule {rule}]{reason}")
+        lines.append("")
+
+    if result.baseline is not None and result.baseline.resolved:
+        lines.append("Resolved since the baseline:")
+        for e in result.baseline.resolved:
+            title = f": {e.title}" if e.title else ""
+            lines.append(f"  {e.label}{title} ({e.id})")
         lines.append("")
 
     for c in result.unchecked:
@@ -91,6 +99,9 @@ def render_text(result: AuditResult, *, color: bool = False, show_ignored: bool 
     else:
         lines.append("No known vulnerabilities found.")
     extras = []
+    if result.baseline is not None:
+        b = result.baseline
+        extras.append(f"{len(b.new)} new, {len(b.unchanged)} unchanged, {len(b.resolved)} resolved since the baseline")
     if result.ignored:
         extras.append(f"{len(result.ignored)} ignored")
     if result.filtered:

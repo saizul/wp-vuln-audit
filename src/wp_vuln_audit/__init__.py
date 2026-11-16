@@ -2,6 +2,7 @@
 
 from ._version import __version__
 from .audit import AuditOptions, AuditResult, Finding, audit, check_component
+from .baseline import Baseline, BaselineComparison, BaselineError, compare
 from .cache import FeedError, FeedSource
 from .feed import Cvss, Feed, FeedFormatError, Software, Vulnerability
 from .ignore import IgnoreList, IgnoreRule
@@ -16,6 +17,9 @@ from .wpcli import parse_combined, parse_list
 __all__ = [
     "AuditOptions",
     "AuditResult",
+    "Baseline",
+    "BaselineComparison",
+    "BaselineError",
     "Component",
     "Cvss",
     "Feed",
@@ -34,6 +38,7 @@ __all__ = [
     "__version__",
     "audit",
     "check_component",
+    "compare",
     "compare_versions",
     "normalize_version",
     "parse_affected_versions",

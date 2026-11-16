@@ -3,7 +3,8 @@
 Exit codes:
 
 * 0 - no finding at or above ``--fail-on``
-* 1 - at least one finding at or above ``--fail-on``
+* 1 - at least one finding at or above ``--fail-on`` (with ``--baseline``: a new one,
+  unless ``--fail-scope all``)
 * 2 - usage error or unreadable input
 * 3 - the vulnerability feed could not be loaded
 """
@@ -20,13 +21,14 @@ from typing import TextIO
 
 from ._version import __version__
 from .audit import AuditOptions, AuditResult, audit
+from .baseline import Baseline, BaselineError, compare
 from .cache import DEFAULT_BASE_URL, FEED_VARIANTS, FeedError, FeedSource, FetchResult, default_cache_dir
 from .feed import SEVERITIES, Feed, FeedFormatError
 from .http import RateLimiter, Transport
 from .ignore import DEFAULT_IGNORE_FILE, IgnoreError, IgnoreList
 from .inventory import Component, Inventory
 from .remote import RemoteOptions, RemoteScanner
-from .report import FORMATS, render
+from .report import FORMATS, render, render_json
 from .versions import normalize_version
 from .wp_local import WordPressNotFound, scan_local
 from .wpcli import WpCliError, parse_combined, parse_core_version, parse_list
@@ -90,6 +92,24 @@ def _add_output_args(p: argparse.ArgumentParser) -> None:
         choices=FAIL_ON,
         default="any",
         help="exit 1 when a finding is at or above this severity (default: any)",
+    )
+    b = p.add_argument_group("baseline")
+    b.add_argument(
+        "--baseline",
+        metavar="FILE",
+        help="earlier JSON or SARIF report; findings in it are 'unchanged', the rest 'new'",
+    )
+    b.add_argument(
+        "--fail-scope",
+        choices=("new", "all"),
+        default="new",
+        help="with --baseline: let only new findings (default) or all findings trigger --fail-on",
+    )
+    b.add_argument("--new-only", action="store_true", help="with --baseline: report new findings only")
+    b.add_argument(
+        "--write-baseline",
+        metavar="FILE",
+        help="also write the full JSON report to FILE for the next --baseline run",
     )
 
 
@@ -297,10 +317,27 @@ def _emit(result: AuditResult, args: argparse.Namespace, stdout: TextIO) -> None
         stdout.write(text)
 
 
+def _load_baseline(args: argparse.Namespace, stderr: TextIO) -> Baseline | None:
+    if not args.baseline:
+        if args.new_only:
+            raise UsageError("--new-only needs --baseline")
+        return None
+    path = Path(args.baseline)
+    if not path.exists() and args.write_baseline and Path(args.write_baseline).resolve() == path.resolve():
+        # First run of a "--baseline F --write-baseline F" job: start from an empty baseline.
+        stderr.write(f"wp-vuln-audit: baseline {args.baseline} does not exist yet; every finding is new\n")
+        return Baseline([], args.baseline)
+    try:
+        return Baseline.load(path)
+    except BaselineError as exc:
+        raise UsageError(f"--baseline: {exc}") from exc
+
+
 def _run_audit(
     inv: Inventory, args: argparse.Namespace, stdout: TextIO, stderr: TextIO, transport: Transport | None
 ) -> int:
     options = _options(args)
+    baseline = _load_baseline(args, stderr)
     fr = load_feed(args, transport)
     if fr.message and fr.status != "file":
         stderr.write(f"wp-vuln-audit: {fr.message}\n")
@@ -310,10 +347,23 @@ def _run_audit(
     info = _feed_info(fr)
     info["variant"] = "file" if fr.status == "file" else args.feed
     result.feed_info = info
+    if baseline is not None:
+        comparison = compare(result, baseline)
+        stderr.write(
+            f"wp-vuln-audit: baseline: {len(comparison.new)} new, {len(comparison.unchanged)} unchanged, "
+            f"{len(comparison.resolved)} resolved\n"
+        )
+    if args.write_baseline:
+        # Always the complete result, so --new-only does not shrink the next baseline.
+        Path(args.write_baseline).write_text(render_json(result), encoding="utf-8")
+        stderr.write(f"wp-vuln-audit: wrote baseline to {args.write_baseline}\n")
+    fails = result.fails(args.fail_on, new_only=args.fail_scope == "new")
+    if args.new_only and result.baseline is not None:
+        result.findings = list(result.baseline.new)
     _emit(result, args, stdout)
     if args.output:
         stderr.write(f"wp-vuln-audit: wrote {args.format} report to {args.output}\n")
-    return EXIT_FINDINGS if result.fails(args.fail_on) else EXIT_OK
+    return EXIT_FINDINGS if fails else EXIT_OK
 
 
 # --------------------------------------------------------------------------- commands

@@ -75,26 +75,28 @@ def sarif_document(result: AuditResult) -> dict[str, Any]:
             index[f.vulnerability.id] = len(rules)
             rules.append(_rule(f))
         fix = f"Update to {f.fixed_in}." if f.fixed_in else (f.software.remediation or "No patched version is known.")
-        results.append(
-            {
-                "ruleId": f.vulnerability.id,
-                "ruleIndex": index[f.vulnerability.id],
-                "level": _level(f),
-                "message": {
-                    "text": f"{f.component.label} is affected by {f.vulnerability.title}"
-                    + (f" ({f.vulnerability.cve})" if f.vulnerability.cve else "")
-                    + f". Affected: {f.range.describe()}. {fix}"
-                },
-                "locations": [_location(f)],
-                "partialFingerprints": {"wpVulnAudit/v1": _fingerprint(f)},
-                "properties": {
-                    "component": f.component.slug,
-                    "componentType": f.component.type,
-                    "installedVersion": f.component.version,
-                    "fixedIn": f.fixed_in,
-                },
-            }
-        )
+        entry: dict[str, Any] = {
+            "ruleId": f.vulnerability.id,
+            "ruleIndex": index[f.vulnerability.id],
+            "level": _level(f),
+            "message": {
+                "text": f"{f.component.label} is affected by {f.vulnerability.title}"
+                + (f" ({f.vulnerability.cve})" if f.vulnerability.cve else "")
+                + f". Affected: {f.range.describe()}. {fix}"
+            },
+            "locations": [_location(f)],
+            "partialFingerprints": {"wpVulnAudit/v1": _fingerprint(f)},
+            "properties": {
+                "component": f.component.slug,
+                "componentType": f.component.type,
+                "installedVersion": f.component.version,
+                "fixedIn": f.fixed_in,
+                "severity": f.severity,
+            },
+        }
+        if result.baseline is not None:
+            entry["baselineState"] = result.baseline.state(f)
+        results.append(entry)
     return {
         "$schema": SARIF_SCHEMA,
         "version": "2.1.0",

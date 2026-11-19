@@ -86,6 +86,9 @@ It is a command-line tool and a Python library with **no runtime dependencies** 
   expiry dates.
 - **Reports**: text (grouped by component, coloured on a terminal), JSON, Markdown (for PR comments, chat or e-mail) and
   **SARIF 2.1.0** with `security-severity`, CWE tags and stable fingerprints for GitHub code scanning.
+- **Upgrade plan**: per vulnerable component, the lowest version that fixes every reported vulnerability (checked
+  against the whole feed, so it never points at a version with another fixable advisory) and the WP-CLI command to
+  install it.
 - **CI friendly**: `--fail-on` threshold, distinct exit codes for "vulnerable", "bad input" and "feed problem".
 - **Baselines**: compare with an earlier JSON or SARIF report, mark findings as new or unchanged, list resolved ones,
   and fail the build on new findings only.
@@ -297,14 +300,33 @@ in text and Markdown reports; the JSON report always contains them under `ignore
 
 Components whose version could not be read are listed as "not checked" rather than silently passing.
 
+### Upgrade plan
+
+Every report ends with one line per vulnerable component:
+
+```text
+Upgrade plan:
+  plugin example-forms 2.0.3 -> 2.4.2 (fixes 2): wp plugin update example-forms --version=2.4.2
+  plugin demo-slider 4.2: no fixed version; replace, remove or protect it
+  WordPress core 6.4.2 -> 6.4.3 (fixes 1): wp core update --version=6.4.3
+```
+
+The target starts as the highest "fixed in" version of the component's findings. It is then checked against every
+record in the feed for that component; when the target is inside another range that has a fix, it moves up to that
+fix (up to ten times). A target that is still inside a range without a fix is flagged as still affected. Findings
+without any fixed version are counted as "without a fix". Must-use plugins get a target but no command, because
+WP-CLI does not update them. The JSON report lists the same data under `upgrades` (`type`, `slug`, `installed`,
+`target`, `fixes`, `unfixed`, `still_affected`, `command`), and the Markdown report adds an "Upgrade plan" table.
+
 ## Output formats
 
 - **text** (default): grouped by component, most severe first, with the affected range, the fix and the advisory link.
 - **json**: `schema_version`, a `summary` (counts by severity, highest severity), every component, `findings`,
-  `ignored`, `unchecked` and `warnings`. Each finding has the id, title, CVE, CVSS vector and score, CWE, affected
-  range, fix, remediation, advisory URL and references. With `--baseline`, findings carry `baseline_state` and a
-  `baseline` object holds the new, unchanged and resolved counts and the resolved entries.
-- **markdown**: a table for pull request comments, issues, Slack or e-mail.
+  `ignored`, `upgrades`, `unchecked` and `warnings`. Each finding has the id, title, CVE, CVSS vector and score, CWE,
+  affected range, fix, remediation, advisory URL and references; `upgrades` is the upgrade plan. With `--baseline`,
+  findings carry `baseline_state` and a `baseline` object holds the new, unchanged and resolved counts and the resolved
+  entries.
+- **markdown**: a findings table and an upgrade plan table for pull request comments, issues, Slack or e-mail.
 - **sarif**: SARIF 2.1.0. Every vulnerability is a rule with `security-severity` set to its CVSS score, so GitHub code
   scanning shows Critical / High / Medium / Low; results point at the file the version was read from and carry a
   `partialFingerprints` value so alerts are tracked across runs. See
@@ -401,7 +423,8 @@ Report security problems in this tool as described in [SECURITY.md](SECURITY.md)
 
 ## Contributing
 
-Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Bug reports and pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) and the
+[code of conduct](CODE_OF_CONDUCT.md).
 
 ## License
 

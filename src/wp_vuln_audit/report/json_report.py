@@ -35,6 +35,7 @@ def result_to_dict(result: AuditResult) -> dict[str, Any]:
         "components": [c.to_dict() for c in result.inventory.components],
         "findings": [_finding(result, f) for f in result.findings],
         "ignored": [f.to_dict() for f in result.ignored],
+        "upgrades": [u.to_dict() for u in result.upgrades],
         "unchecked": [c.to_dict() for c in result.unchecked],
         "warnings": list(result.warnings),
     }

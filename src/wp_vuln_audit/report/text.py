@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from ..audit import AuditResult, Finding
+from ..upgrade import Upgrade
 
 _COLORS = {
     "critical": "\033[1;31m",
@@ -29,6 +30,22 @@ def _fix(finding: Finding) -> str:
     if finding.software.remediation:
         return finding.software.remediation
     return "no fix available" if not finding.software.patched else "patched (see advisory)"
+
+
+def _upgrade_line(u: Upgrade) -> str:
+    comp = u.component
+    name = "WordPress core" if comp.type == "core" else f"{comp.type} {comp.slug}"
+    if u.target is None:
+        text = f"{name} {comp.version}: no fixed version; replace, remove or protect it"
+    else:
+        text = f"{name} {comp.version} -> {u.target} (fixes {u.fixes})"
+        if u.unfixed:
+            text += f"; {len(u.unfixed)} without a fix"
+        if u.still_affected:
+            text += f"; {u.target} is still affected by {len(u.still_affected)} unfixed advisory(ies)"
+        if u.command:
+            text += f": {u.command}"
+    return text
 
 
 def render_text(result: AuditResult, *, color: bool = False, show_ignored: bool = False) -> str:
@@ -63,6 +80,12 @@ def render_text(result: AuditResult, *, color: bool = False, show_ignored: bool 
             lines.append(f"  {'':13} affected {f.range.describe()}; {_fix(f)}")
             lines.append(f"  {'':13} {f.vulnerability.url}")
     if result.findings:
+        lines.append("")
+
+    if result.upgrades:
+        lines.append("Upgrade plan:")
+        for u in result.upgrades:
+            lines.append(f"  {_upgrade_line(u)}")
         lines.append("")
 
     if show_ignored and result.ignored:

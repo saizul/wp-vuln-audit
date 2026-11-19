@@ -13,6 +13,7 @@ from .ranges import VersionRange
 
 if TYPE_CHECKING:
     from .baseline import BaselineComparison
+    from .upgrade import Upgrade
 
 __all__ = ["AuditOptions", "AuditResult", "Finding", "audit", "check_component"]
 
@@ -98,6 +99,8 @@ class AuditResult:
     feed_info: dict[str, Any] = field(default_factory=dict)
     # Set by ``baseline.compare()``.
     baseline: BaselineComparison | None = None
+    # One entry per vulnerable component, set by ``audit()``.
+    upgrades: list[Upgrade] = field(default_factory=list)
 
     @property
     def vulnerable_components(self) -> list[Component]:
@@ -197,4 +200,7 @@ def audit(feed: Feed, inventory: Inventory, options: AuditOptions | None = None)
             result.findings.append(finding)
     result.findings.sort(key=lambda f: f.sort_key)
     result.ignored.sort(key=lambda f: f.sort_key)
+    from .upgrade import plan_upgrades
+
+    result.upgrades = plan_upgrades(feed, result.findings)
     return result

@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Upgrade plan in every report: for each vulnerable component, the lowest version that fixes all of its reported
+  vulnerabilities, verified against every feed record for the component (a fixed version that is inside another
+  fixable range moves up to that fix), the number of findings it fixes, findings without a fix, unfixed advisories
+  that still affect the target, and the WP-CLI update command. Text output adds an "Upgrade plan" section, Markdown an
+  "Upgrade plan" table and JSON an `upgrades` list. Python API: `plan_upgrades()`, `Upgrade` and
+  `AuditResult.upgrades`.
+- A code of conduct, issue forms and a pull request template.
 - Baselines: `--baseline FILE` compares a scan with an earlier JSON or SARIF report. Findings are keyed by
   component type, slug and vulnerability id (not the installed version) and marked new or unchanged in every
   report format (`[new]`, **New:**, `baseline_state`, SARIF `baselineState`); baseline entries that are no longer

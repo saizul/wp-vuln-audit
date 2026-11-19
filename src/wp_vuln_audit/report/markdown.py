@@ -49,6 +49,21 @@ def render_markdown(result: AuditResult, *, show_ignored: bool = False) -> str:
             comp = "WordPress core" if f.component.type == "core" else f"{f.component.type} `{f.component.slug}`"
             out.append(f"| {sev} | {comp} | {f.component.version} | {title} | {_cell(_fix(f))} |")
     out.append("")
+    if result.upgrades:
+        out.append("### Upgrade plan")
+        out.append("")
+        out.append("| Component | Installed | Update to | Fixes | Command |")
+        out.append("| --- | --- | --- | --- | --- |")
+        for u in result.upgrades:
+            c = u.component
+            comp = "WordPress core" if c.type == "core" else f"{c.type} `{c.slug}`"
+            target = u.target or "no fixed version"
+            fixes = str(u.fixes) + (f" ({len(u.unfixed)} without a fix)" if u.unfixed else "")
+            if u.still_affected:
+                fixes += f", still affected by {len(u.still_affected)}"
+            command = f"`{u.command}`" if u.command else ""
+            out.append(f"| {comp} | {c.version} | {target} | {fixes} | {command} |")
+        out.append("")
     if result.baseline is not None:
         b = result.baseline
         out.append(
